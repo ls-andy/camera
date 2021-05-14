@@ -208,6 +208,7 @@ class CameraController extends ValueNotifier<CameraValue> {
     this.resolutionPreset, {
     this.enableAudio = true,
     this.imageFormatGroup,
+    this.aspectRatio = 0.0,
   }) : super(const CameraValue.uninitialized());
 
   /// The properties of the camera device controlled by this controller.
@@ -228,6 +229,9 @@ class CameraController extends ValueNotifier<CameraValue> {
   ///
   /// When null the imageFormat will fallback to the platforms default.
   final ImageFormatGroup? imageFormatGroup;
+
+  /// 预览页面的宽高比, 不指定则使用默认方案
+  final double aspectRatio;
 
   /// The id of a camera that hasn't been initialized.
   @visibleForTesting
@@ -273,6 +277,7 @@ class CameraController extends ValueNotifier<CameraValue> {
         description,
         resolutionPreset,
         enableAudio: enableAudio,
+        aspectRatio: aspectRatio,
       );
 
       unawaited(CameraPlatform.instance

@@ -83,11 +83,11 @@ public class Camera {
   private final boolean isFrontFacing;
   private final int sensorOrientation;
   private final String cameraName;
-  private final Size captureSize;
-  private final Size previewSize;
+  private Size captureSize;
+  private Size previewSize;
   private final boolean enableAudio;
   private final Context applicationContext;
-  private final CamcorderProfile recordingProfile;
+  private CamcorderProfile recordingProfile;
   private final DartMessenger dartMessenger;
   private final CameraZoom cameraZoom;
   private final CameraCharacteristics cameraCharacteristics;
@@ -110,6 +110,7 @@ public class Camera {
   private Range<Integer> fpsRange;
   private PlatformChannel.DeviceOrientation lockedCaptureOrientation;
   private long preCaptureStartTime;
+  private ResolutionPreset preset;
 
   private static final HashMap<String, Integer> supportedImageFormats;
   // Current supported outputs
@@ -125,7 +126,8 @@ public class Camera {
       final DartMessenger dartMessenger,
       final String cameraName,
       final String resolutionPreset,
-      final boolean enableAudio)
+      final boolean enableAudio,
+      final double aspectRatio)
       throws CameraAccessException {
     if (activity == null) {
       throw new IllegalStateException("No activity available!");
@@ -147,11 +149,30 @@ public class Camera {
     isFrontFacing =
         cameraCharacteristics.get(CameraCharacteristics.LENS_FACING)
             == CameraMetadata.LENS_FACING_FRONT;
-    ResolutionPreset preset = ResolutionPreset.valueOf(resolutionPreset);
-    recordingProfile =
-        CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset);
-    captureSize = new Size(recordingProfile.videoFrameWidth, recordingProfile.videoFrameHeight);
-    previewSize = computeBestPreviewSize(cameraName, preset);
+    preset = ResolutionPreset.valueOf(resolutionPreset);
+
+    Size mCaptureSize = CameraUtils.getCaptureSizeForResolutionPreset(preset, aspectRatio, cameraCharacteristics);
+    Size mPreviewSize = CameraUtils.getPreviewSizeForResolutionPreset(activity, preset, aspectRatio, cameraCharacteristics);
+    Log.d("sss","Camera mPreviewSize.width "+mPreviewSize.getWidth() + " height "+mPreviewSize.getHeight());
+    if (mCaptureSize.getWidth() != 0) {
+      captureSize = mCaptureSize;
+    } else {
+      if (recordingProfile == null) {
+        recordingProfile =
+                CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset);
+      }
+      captureSize = new Size(recordingProfile.videoFrameWidth, recordingProfile.videoFrameHeight);
+    }
+
+    if (mPreviewSize.getWidth() != 0) {
+      previewSize = mPreviewSize;
+    } else {
+      if (recordingProfile == null) {
+        recordingProfile =
+                CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset);
+      }
+      previewSize = new Size(recordingProfile.videoFrameWidth, recordingProfile.videoFrameHeight);
+    }
     cameraZoom =
         new CameraZoom(
             cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE),
@@ -186,6 +207,11 @@ public class Camera {
   private void prepareMediaRecorder(String outputFilePath) throws IOException {
     if (mediaRecorder != null) {
       mediaRecorder.release();
+    }
+
+    if (recordingProfile == null) {
+      recordingProfile =
+              CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset);
     }
 
     mediaRecorder =

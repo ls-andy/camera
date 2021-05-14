@@ -7,12 +7,14 @@ package io.flutter.plugins.camera;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
+import android.util.Log;
 import android.util.Size;
 import io.flutter.embedding.engine.systemchannels.PlatformChannel;
 import io.flutter.plugins.camera.types.ResolutionPreset;
@@ -175,4 +177,174 @@ public final class CameraUtils {
           (long) lhs.getWidth() * lhs.getHeight() - (long) rhs.getWidth() * rhs.getHeight());
     }
   }
+
+    static Size getCaptureSizeForResolutionPreset(
+            ResolutionPreset preset, double aspectRatio, CameraCharacteristics cameraCharacteristics) {
+        try {
+            if (aspectRatio == 0.0) {
+                return new Size(0, 0);
+            }
+            StreamConfigurationMap streamConfigurationMap = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            Size[] sizes = streamConfigurationMap.getOutputSizes(ImageFormat.JPEG);
+            ArrayList<Size> selectedSizes = new ArrayList<>();
+            Log.d("sss", "getCaptureSizeForResolutionPreset sizes.length " + sizes.length);
+            for (Size size : sizes) {
+                int width = size.getWidth();
+                int height = size.getHeight();
+                float ratio = (float) width / height;
+                float expectRatio = 1.0f / (float) aspectRatio;
+                Log.d("sss", " width " + size.getWidth() + " height " + size.getHeight());
+                if (ratio == expectRatio) {
+                    Log.d("sss", " 4/3 width " + size.getWidth() + " height " + size.getHeight());
+                    selectedSizes.add(size);
+                }
+            }
+            Log.d("sss", " selectedSizes.size " + selectedSizes.size());
+            Collections.sort(selectedSizes, new Comparator<Size>() {
+                @Override
+                public int compare(Size lhs, Size rhs) {
+                    return Integer.compare(rhs.getHeight(), lhs.getHeight());
+                }
+            });
+            Size maxSize = Collections.max(selectedSizes, new CompareSizesByArea());
+            Log.d("sss", "max.size width " + maxSize.getWidth() + " height " + maxSize.getHeight());
+            if (selectedSizes.size() > 0) {
+                for (int i = 0; i < selectedSizes.size(); i++) {
+                    Size size = selectedSizes.get(i);
+                    switch (preset) {
+                        case max:
+                            if (maxSize.getHeight() < 2160) {
+                                return maxSize;
+                            }
+                            if (size.getHeight() >= 2160 && size.getHeight() <= 3000) {
+                                return size;
+                            }
+                            break;
+                        case ultraHigh:
+                            if (size.getHeight() >= 2160 && size.getHeight() <= 3000) {
+                                return size;
+                            }
+                            break;
+                        case veryHigh:
+                            if (size.getHeight() >= 1080 && size.getHeight() <= 1440) {
+                                return size;
+                            }
+                            break;
+                        case high:
+                            if (size.getHeight() >= 720 && size.getHeight() <= 960) {
+                                return size;
+                            }
+                            break;
+                        case medium:
+                            if (size.getHeight() == 480) {
+                                return size;
+                            }
+                            break;
+                        case low:
+                            if (size.getHeight() == 240) {
+                                return size;
+                            }
+                    }
+                }
+            }
+        } catch (Exception e) {
+
+        }
+        return new Size(0, 0);
+    }
+
+    static Size getPreviewSizeForResolutionPreset(Activity activity,
+                                                  ResolutionPreset preset, double aspectRatio, CameraCharacteristics cameraCharacteristics) {
+        try {
+            if (aspectRatio == 0.0) {
+                return new Size(0, 0);
+            }
+            StreamConfigurationMap streamConfigurationMap = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            Size[] sizes = streamConfigurationMap.getOutputSizes(SurfaceTexture.class);
+            ArrayList<Size> selectedSizes = new ArrayList<>();
+            Log.d("sss", "getPreviewSizeForResolutionPreset sizes.length " + sizes.length);
+            int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
+            Log.d("sss", "getPreviewSizeForResolutionPreset screenWidth " + screenWidth);
+            for (Size size : sizes) {
+                int width = size.getWidth();
+                int height = size.getHeight();
+                float ratio = (float) width / height;
+                float expectRatio = 1.0f / (float) aspectRatio;
+                Log.d("sss", " width " + size.getWidth() + " height " + size.getHeight());
+                if (ratio == expectRatio) {
+                    Log.d("sss", " 4/3 width " + size.getWidth() + " height " + size.getHeight());
+                    selectedSizes.add(size);
+                }
+            }
+            Log.d("sss", " selectedSizes.size " + selectedSizes.size());
+            Collections.sort(selectedSizes, new Comparator<Size>() {
+                @Override
+                public int compare(Size lhs, Size rhs) {
+                    return Integer.compare(rhs.getHeight(), lhs.getHeight());
+                }
+            });
+            Size maxSize = Collections.max(selectedSizes, new CompareSizesByArea());
+            Log.d("sss", "max.size width " + maxSize.getWidth() + " height " + maxSize.getHeight());
+            if (selectedSizes.size() > 0) {
+                for (int i = 0; i < selectedSizes.size(); i++) {
+                    Size size = selectedSizes.get(i);
+                    Log.d("sss", "getPreviewSizeForResolutionPreset width " + size.getWidth() + " height " + size.getHeight());
+                    switch (preset) {
+                        case max:
+                            Log.d("sss", "max preset");
+                            if (screenWidth == size.getHeight()) {
+                                Log.d("sss", "return screenWidth == size.getHeight()");
+                                return size;
+                            }
+                            break;
+                        case ultraHigh:
+                            if (size.getHeight() >= 2160 && size.getHeight() <= 3000) {
+                                return size;
+                            }
+                            break;
+                        case veryHigh:
+                            if (size.getHeight() >= 1080 && size.getHeight() <= 1440) {
+                                return size;
+                            }
+                            break;
+                        case high:
+                            if (size.getHeight() >= 720 && size.getHeight() <= 960) {
+                                return size;
+                            }
+                            break;
+                        case medium:
+                            if (size.getHeight() == 480) {
+                                return size;
+                            }
+                            break;
+                        case low:
+                            if (size.getHeight() == 240) {
+                                return size;
+                            }
+                    }
+                }
+                Size size = new Size(0,0);
+                //计算相邻的俩个size的宽差值
+                int widthDiff = 0;
+                for (int i = 0;i < selectedSizes.size(); i++) {
+                    Size tempSize = selectedSizes.get(i);
+                    if (size.getHeight() == 0) {
+                        size = tempSize;
+                        widthDiff = size.getHeight() - screenWidth;
+                        continue;
+                    }
+
+                    int widthTempDiff = tempSize.getHeight() - screenWidth;
+                    if (Math.abs(widthTempDiff) < Math.abs(widthDiff)) {
+                        widthDiff = widthTempDiff;
+                        size = tempSize;
+                    }
+                }
+                return size;
+            }
+        } catch (Exception e) {
+
+        }
+        return new Size(0, 0);
+    }
 }
